@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Belsoft.Api/Belsoft.Api.csproj" />
+  </Folder>
+</Solution>
