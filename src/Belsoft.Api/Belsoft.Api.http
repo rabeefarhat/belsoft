@@ -1,6 +1,20 @@
-@Belsoft.Api_HostAddress = http://localhost:5049
+@host = https://localhost:7014
 
-GET {{Belsoft.Api_HostAddress}}/weatherforecast/
+### L01 — First endpoints
+
+### ✅ health → 200 "Healthy"
+GET {{host}}/api/health
+
+### ✅ list all orders → 200 with 3 orders
+GET {{host}}/api/orders
 Accept: application/json
 
-###
+### ✅ get order by id → 200 with one order
+GET {{host}}/api/orders/1
+Accept: application/json
+
+### ❌ unknown id → 404
+GET {{host}}/api/orders/999
+
+### ❌ non-numeric id → 404 (the {id:int} route constraint does not match)
+GET {{host}}/api/orders/abc

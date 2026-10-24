@@ -1,23 +1,20 @@
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);                    // ①
 
-// Add services to the container.
+builder.Services.AddControllers();                                   // ②
+builder.Services.AddOpenApi();                                       // ③
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+var app = builder.Build();                                           // ④
 
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())                                 // ⑤
 {
-    app.MapOpenApi();
+    app.MapOpenApi();                                                // ⑥
+    app.UseSwaggerUI(options =>                                      // ⑦
+        options.SwaggerEndpoint("/openapi/v1.json", "Belsoft API v1"));
 }
 
-app.UseHttpsRedirection();
+app.UseHttpsRedirection();                                           // ⑧
+app.UseAuthorization();                                              // ⑨
 
-app.UseAuthorization();
+app.MapControllers();                                                // ⑩
 
-app.MapControllers();
-
-app.Run();
+app.Run();                                                           // ⑪
