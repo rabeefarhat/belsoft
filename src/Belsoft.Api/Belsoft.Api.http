@@ -18,3 +18,69 @@ GET {{host}}/api/orders/999
 
 ### ❌ non-numeric id → 404 (the {id:int} route constraint does not match)
 GET {{host}}/api/orders/abc
+
+
+### ─────────────────────────────────────────────
+### L03 — Create order: DTOs, validation, ProblemDetails
+### ─────────────────────────────────────────────
+
+### ✅ create order → 201 + Location header, status Pending, server-side prices
+# @name createOrder
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{
+  "customerName": "Margaret Hamilton",
+  "items": [
+    { "productCode": "KB-01", "quantity": 2 },
+    { "productCode": "mug-01", "quantity": 1 }
+  ]
+}
+
+### ✅ follow the Location header → 200, same order
+GET {{createOrder.response.headers.Location}}
+
+### ✅ fetch it by id from the response body → 200
+GET {{host}}/api/orders/{{createOrder.response.body.$.id}}
+
+### ❌ empty items → 400 ProblemDetails ("An order needs at least one item.")
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Ada Lovelace", "items": [] }
+
+### ❌ quantity 0 → 400 ProblemDetails (errors["Items[0].Quantity"])
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Ada Lovelace", "items": [ { "productCode": "KB-01", "quantity": 0 } ] }
+
+### ❌ missing customerName → 400, generic "The input was not valid." (no type names)
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "items": [ { "productCode": "KB-01", "quantity": 1 } ] }
+
+### ❌ blank customerName → 400 ProblemDetails (errors["CustomerName"])
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "   ", "items": [ { "productCode": "KB-01", "quantity": 1 } ] }
+
+### ❌ unknown product code → 400 ProblemDetails (errors["Items[0].ProductCode"])
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Ada Lovelace", "items": [ { "productCode": "TESLA-1", "quantity": 1 } ] }
+
+### ❌ overposting: "id" and "status" are ignored → 201 with a NEW id and status "Pending"
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "id": 1, "status": "Paid", "customerName": "Eve", "items": [ { "productCode": "MON-27", "quantity": 1 } ] }
+
+### ❌ malformed JSON → 400, generic message
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Ada", "items": [

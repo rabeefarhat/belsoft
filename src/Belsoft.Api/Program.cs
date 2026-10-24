@@ -2,7 +2,10 @@
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Services ─────────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        // Unreadable JSON returns a generic message instead of the parser's, which names our internal types.
+        options.AllowInputFormatterExceptionMessages = false);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
