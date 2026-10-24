@@ -361,3 +361,16 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+#############################################################
+
+# ── Belsoft: local-only configuration and secrets ──────────────
+# Environment files hold real credentials from L32 onward.
+.env
+.env.*
+# ...but the placeholder template IS committed, so others know what to set.
+!.env.example
+
+# Scratch files used for experiments or the L02 negative check.
+secrets.txt
+*.secrets.json

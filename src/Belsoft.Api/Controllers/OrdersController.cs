@@ -3,42 +3,35 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Belsoft.Api.Controllers;
 
-[ApiController]                                                     // ①
-[Route("api/[controller]")]                                         // ②
-public sealed class OrdersController : ControllerBase               // ③
+[ApiController]
+[Route("api/[controller]")]
+public sealed class OrdersController : ControllerBase
 {
     // Temporary in-memory data. L04 moves this behind IOrderStore; L07 replaces it with SQL Server.
-    private static readonly List<Order> Orders =                    // ④
+    // Static because a new controller instance is created for every request.
+    private static readonly List<Order> Orders =
     [
-        new Order(1, "Ada Lovelace", 49.90m),                       // ⑤
+        new Order(1, "Ada Lovelace", 49.90m),
         new Order(2, "Alan Turing", 120.00m),
         new Order(3, "Grace Hopper", 15.25m),
     ];
 
-    [HttpGet]                                                       // ⑥
-    public ActionResult<IReadOnlyList<Order>> GetAll()              // ⑦
+    [HttpGet]
+    public ActionResult<IReadOnlyList<Order>> GetAll()
     {
-        return Ok(Orders);                                          // ⑧
+        return Ok(Orders);
     }
 
-    [HttpGet("{id:int}")]                                           // ⑨
-    public ActionResult<Order> GetById(int id)                      // ⑩
+    [HttpGet("{id:int}")]
+    public ActionResult<Order> GetById(int id)
     {
-        Order? order = Orders.Find(o => o.Id == id);                // ⑪
+        Order? order = Orders.Find(o => o.Id == id);
 
-        if (order is null)                                          // ⑫
+        if (order is null)
         {
             return NotFound();
         }
 
         return Ok(order);
-    }
-
-    // Async twin of GetAll, for comparison in this lesson only (removed in Step 8b).
-    [HttpGet("async")]                                              // ⑬
-    public async Task<ActionResult<IReadOnlyList<Order>>> GetAllAsync()
-    {
-        await Task.Delay(TimeSpan.FromMilliseconds(300));           // ⑭
-        return Ok(Orders);
     }
 }
