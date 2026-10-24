@@ -43,6 +43,12 @@ GET {{createOrder.response.headers.Location}}
 ### ✅ fetch it by id from the response body → 200
 GET {{host}}/api/orders/{{createOrder.response.body.$.id}}
 
+### ❌ quantity 1001 → 400 ProblemDetails (errors["Items[0].Quantity"])
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Ada Lovelace", "items": [ { "productCode": "KB-01", "quantity": 1001 } ] }
+
 ### ❌ empty items → 400 ProblemDetails ("An order needs at least one item.")
 POST {{host}}/api/orders
 Content-Type: application/json

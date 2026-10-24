@@ -67,6 +67,12 @@ public sealed class OrdersController : ControllerBase
         {
             CreateOrderItemRequest item = request.Items[i];
 
+            if (item is null)
+            {
+                ModelState.AddModelError($"Items[{i}]", "Item is required.");
+                continue;
+            }
+
             if (!PriceList.TryGetValue(item.ProductCode, out decimal unitPrice))            // ⑨
             {
                 ModelState.AddModelError($"Items[{i}].ProductCode", "Unknown product code.");
