@@ -90,3 +90,24 @@ POST {{host}}/api/orders
 Content-Type: application/json
 
 { "customerName": "Ada", "items": [
+
+
+### ─────────────────────────────────────────────
+### L04 — Services and DI (no new endpoints: re-run the WHOLE file first; every response must be unchanged)
+### ─────────────────────────────────────────────
+
+### ✅ create → 201 (singleton keeps it for the next request)
+# @name l04Create
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Barbara Liskov", "items": [ { "productCode": "MON-27", "quantity": 1 } ] }
+
+### ✅ a SEPARATE request finds it → 200 (would be 404 if the service were scoped)
+GET {{host}}/api/orders/{{l04Create.response.body.$.id}}
+
+### ❌ null item → 400 ProblemDetails (errors["Items[0]"]) — covers the L03 fix bf3ccba
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Ada Lovelace", "items": [ null ] }
