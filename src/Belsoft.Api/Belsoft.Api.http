@@ -111,3 +111,57 @@ POST {{host}}/api/orders
 Content-Type: application/json
 
 { "customerName": "Ada Lovelace", "items": [ null ] }
+
+
+
+### ─────────────────────────────────────────────
+### L05 — Middleware, configuration and options
+### Watch the app's console: every request below, including the 404 and the 400s, must log one "HTTP … responded …" line.
+### ─────────────────────────────────────────────
+
+### ✅ effective settings under Development → 200 { "environment": "Development", "maxItemsPerOrder": 5 }
+GET {{host}}/api/diagnostics/settings
+Accept: application/json
+
+### ✅ SAME request under the "https (Production)" profile → 200 { "environment": "Production", "maxItemsPerOrder": 20 }
+### (switch the launch profile and re-send: appsettings.Development.json and user secrets are not loaded in Production)
+GET {{host}}/api/diagnostics/settings
+Accept: application/json
+
+### ✅ 5 items under Development (the limit) → 201
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{
+  "customerName": "Katherine Johnson",
+  "items": [
+    { "productCode": "KB-01", "quantity": 1 },
+    { "productCode": "MUG-01", "quantity": 1 },
+    { "productCode": "MUG-01", "quantity": 1 },
+    { "productCode": "MON-27", "quantity": 1 },
+    { "productCode": "KB-01", "quantity": 1 }
+  ]
+}
+
+### ❌ 6 items under Development (limit 5) → 400 ProblemDetails, errors["Items"] = "An order can have at most 5 items."
+### (under Production the limit is 20, so this same request returns 201)
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{
+  "customerName": "Katherine Johnson",
+  "items": [
+    { "productCode": "KB-01", "quantity": 1 },
+    { "productCode": "MUG-01", "quantity": 1 },
+    { "productCode": "MUG-01", "quantity": 1 },
+    { "productCode": "MON-27", "quantity": 1 },
+    { "productCode": "KB-01", "quantity": 1 },
+    { "productCode": "MUG-01", "quantity": 1 }
+  ]
+}
+
+### ❌ unknown route → 404, and still logged by the middleware (an action filter would never see it)
+GET {{host}}/api/nothing-here
+
+### ❌ Swagger UI under the "https (Production)" profile → 404 (docs exist only in Development)
+GET {{host}}/swagger/index.html
