@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/docs/" />
+  <Folder Name="/docs/sql/">
+    <File Path="docs/sql/01_create_schema.sql" />
+    <File Path="docs/sql/02_seed.sql" />
+    <File Path="docs/sql/03_queries.sql" />
+    <File Path="docs/sql/04_negative_checks.sql" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
   </Folder>
