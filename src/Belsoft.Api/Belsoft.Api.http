@@ -165,3 +165,46 @@ GET {{host}}/api/nothing-here
 
 ### ❌ Swagger UI under the "https (Production)" profile → 404 (docs exist only in Development)
 GET {{host}}/swagger/index.html
+
+
+    ### ─────────────────────────────────────────────
+### L07 — EF Core persistence. Data lives in LocalDB database BelsoftApp: tables dbo.Orders and dbo.OrderLines.
+### First re-run the WHOLE file: every earlier response must be unchanged.
+### Note: the service is now SCOPED, yet L04's "a SEPARATE request finds it" still returns 200 —
+### the order lives in SQL Server now, not inside the service object.
+### ─────────────────────────────────────────────
+
+### ✅ seed order 1 comes from the database (HasData in the migration) → 200 "Ada Lovelace", total 49.90
+GET {{host}}/api/orders/1
+Accept: application/json
+
+### ✅ create → 201; one row lands in dbo.Orders and two in dbo.OrderLines (watch the INSERTs in the Output window)
+# @name l07Create
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{
+  "customerName": "Edsger Dijkstra",
+  "items": [
+    { "productCode": "KB-01", "quantity": 1 },
+    { "productCode": "mug-01", "quantity": 3 }
+  ]
+}
+
+### ✅ PERSISTENCE: stop the app (Shift+F5), start it again (F5), THEN send this → 200, the same order
+### (if the editor forgot l07Create after the restart, replace the variable with the id you saw)
+GET {{host}}/api/orders/{{l07Create.response.body.$.id}}
+Accept: application/json
+
+### ✅ list after restart → 200, includes "Edsger Dijkstra" (and at most 100 orders: temporary cap until L08)
+GET {{host}}/api/orders
+Accept: application/json
+
+### ❌ unknown id → 404 (FirstOrDefaultAsync returns null; the SQL ran, but found no row)
+GET {{host}}/api/orders/999999
+
+### ❌ unknown product → 400 ProblemDetails, and NO INSERT appears in the Output window (validation runs before the database)
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Edsger Dijkstra", "items": [ { "productCode": "TESLA-1", "quantity": 1 } ] }

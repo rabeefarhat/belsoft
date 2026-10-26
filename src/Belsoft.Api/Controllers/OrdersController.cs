@@ -1,4 +1,5 @@
 ﻿using Belsoft.Api.Dtos;
+using Belsoft.Api.Models;
 using Belsoft.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,18 +7,21 @@ namespace Belsoft.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class OrdersController(IOrderService orderService) : ControllerBase        // ①
+public sealed class OrdersController(IOrderService orderService) : ControllerBase
 {
     [HttpGet]
-    public ActionResult<IReadOnlyList<OrderResponse>> GetAll()
+    public async Task<ActionResult<IReadOnlyList<OrderResponse>>> GetAll()                  // ①
     {
-        return Ok(orderService.GetAll().Select(order => order.ToResponse()).ToList());   // ②
+        IReadOnlyList<Order> orders = await orderService.GetAllAsync();
+
+        return Ok(orders.Select(order => order.ToResponse()).ToList());
     }
 
+    // Action names deliberately have no "Async" suffix: CreatedAtAction(nameof(GetById)) must match the route name.
     [HttpGet("{id:int}")]
-    public ActionResult<OrderResponse> GetById(int id)
+    public async Task<ActionResult<OrderResponse>> GetById(int id)                          // ②
     {
-        var order = orderService.GetById(id);                                             // ③
+        Order? order = await orderService.GetByIdAsync(id);
 
         if (order is null)
         {
@@ -30,13 +34,13 @@ public sealed class OrdersController(IOrderService orderService) : ControllerBas
     [HttpPost]
     [ProducesResponseType<OrderResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    public ActionResult<OrderResponse> Create(CreateOrderRequest request)
+    public async Task<ActionResult<OrderResponse>> Create(CreateOrderRequest request)
     {
-        CreateOrderResult result = orderService.Create(request);
+        CreateOrderResult result = await orderService.CreateAsync(request);
 
-        if (!result.Succeeded)                                                            // ④
+        if (!result.Succeeded)
         {
-            foreach (var (field, message) in result.Errors)                               // ⑤
+            foreach (var (field, message) in result.Errors)
             {
                 ModelState.AddModelError(field, message);
             }
@@ -44,6 +48,6 @@ public sealed class OrdersController(IOrderService orderService) : ControllerBas
             return ValidationProblem(ModelState);
         }
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Order.Id }, result.Order.ToResponse()); // ⑥
+        return CreatedAtAction(nameof(GetById), new { id = result.Order.Id }, result.Order.ToResponse()); // ③
     }
 }

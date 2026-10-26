@@ -3,11 +3,12 @@ using Belsoft.Api.Models;
 
 namespace Belsoft.Api.Services;
 
+// Async because every implementation that matters does I/O. CancellationToken joins these signatures in L08.
 public interface IOrderService
 {
-    IReadOnlyList<Order> GetAll();
+    Task<IReadOnlyList<Order>> GetAllAsync();
 
-    Order? GetById(int id);
+    Task<Order?> GetByIdAsync(int id);
 
-    CreateOrderResult Create(CreateOrderRequest request);
+    Task<CreateOrderResult> CreateAsync(CreateOrderRequest request);
 }
