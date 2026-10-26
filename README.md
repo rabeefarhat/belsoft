@@ -36,3 +36,4 @@ grows into a cloud-deployed, identity-protected, message-driven system.
   `compare/P01...P02` shows exactly what a lesson changed.
 - No secrets in this repository: local configuration lives in user secrets or
   git-ignored `.env` files.
+
