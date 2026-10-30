@@ -5,9 +5,9 @@ namespace Belsoft.Api.Services;
 
 public interface IOrderService
 {
-    IReadOnlyList<Order> GetAll();
+    Task<IReadOnlyList<Order>> GetAllAsync();
 
-    Order? GetById(int id);
+    Task<Order?> GetByIdAsync(int id);
 
-    CreateOrderResult Create(CreateOrderRequest request);
+    Task<CreateOrderResult> CreateAsync(CreateOrderRequest request);
 }
