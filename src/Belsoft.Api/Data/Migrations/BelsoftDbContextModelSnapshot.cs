@@ -45,6 +45,9 @@ namespace Belsoft.Api.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("IX_Orders_Status_CreatedAt");
+
                     b.ToTable("Orders", null, t =>
                         {
                             t.HasCheckConstraint("CK_Orders_CustomerName_NotBlank", "LEN([CustomerName]) > 0");
