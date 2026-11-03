@@ -29,6 +29,11 @@ public sealed class OrderEntityConfiguration : IEntityTypeConfiguration<OrderEnt
             .HasMaxLength(20);
 
         builder.Property(order => order.CreatedAt);                                                 // ⑥
+                                                                                                    // Serves the list endpoint's most common shape: filter by Status, newest first. Measured in L08.
+        
+        builder.HasIndex(order => new { order.Status, order.CreatedAt })                            // ⑨
+            .HasDatabaseName("IX_Orders_Status_CreatedAt");
+
 
         builder.HasMany(order => order.Lines)                                                       // ⑦
             .WithOne()

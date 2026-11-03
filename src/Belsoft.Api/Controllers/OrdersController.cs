@@ -9,17 +9,21 @@ namespace Belsoft.Api.Controllers;
 public sealed class OrdersController(IOrderService orderService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<OrderResponse>>> GetAll()                     // ①
+    [ProducesResponseType<PagedResponse<OrderSummaryResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<PagedResponse<OrderSummaryResponse>>> GetAll(
+        [FromQuery] OrderListQuery query,                                                       // ①
+        CancellationToken cancellationToken)                                                    // ②
     {
-        var orders = await orderService.GetAllAsync();                                          // ②
+        PagedResponse<OrderSummaryResponse> page = await orderService.GetPageAsync(query, cancellationToken);
 
-        return Ok(orders.Select(order => order.ToResponse()).ToList());
+        return Ok(page);
     }
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<OrderResponse>> GetById(int id)                             // ③
+    public async Task<ActionResult<OrderResponse>> GetById(int id, CancellationToken cancellationToken)
     {
-        var order = await orderService.GetByIdAsync(id);
+        var order = await orderService.GetByIdAsync(id, cancellationToken);
 
         if (order is null)
         {
@@ -32,9 +36,11 @@ public sealed class OrdersController(IOrderService orderService) : ControllerBas
     [HttpPost]
     [ProducesResponseType<OrderResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<OrderResponse>> Create(CreateOrderRequest request)
+    public async Task<ActionResult<OrderResponse>> Create(
+        CreateOrderRequest request,
+        CancellationToken cancellationToken)
     {
-        CreateOrderResult result = await orderService.CreateAsync(request);
+        CreateOrderResult result = await orderService.CreateAsync(request, cancellationToken);
 
         if (!result.Succeeded)
         {
@@ -46,6 +52,6 @@ public sealed class OrdersController(IOrderService orderService) : ControllerBas
             return ValidationProblem(ModelState);
         }
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Order.Id }, result.Order.ToResponse());   // ④
+        return CreatedAtAction(nameof(GetById), new { id = result.Order.Id }, result.Order.ToResponse());
     }
 }

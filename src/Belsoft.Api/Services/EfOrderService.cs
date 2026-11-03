@@ -12,7 +12,7 @@ namespace Belsoft.Api.Services;
 public sealed class EfOrderService(
     BelsoftDbContext db,
     IOptions<BelsoftOptions> options,
-    TimeProvider timeProvider) : IOrderService                                                 // ①
+    TimeProvider timeProvider) : IOrderService
 {
     // Prices are decided by the server, never sent by the client. L13 replaces this with the catalog.
     private static readonly Dictionary<string, decimal> PriceList = new(StringComparer.OrdinalIgnoreCase)
@@ -22,29 +22,65 @@ public sealed class EfOrderService(
         ["MUG-01"] = 15.25m,
     };
 
+    // Every list is bounded: a client may ASK for more, it never GETS more.
+    private const int MaxPageSize = 50;                                                         // ①
+
     private readonly BelsoftOptions _settings = options.Value;
 
-    public async Task<IReadOnlyList<Order>> GetAllAsync()
+    public async Task<PagedResponse<OrderSummaryResponse>> GetPageAsync(
+        OrderListQuery query, CancellationToken cancellationToken)
     {
-        // Unbounded for now: L08 adds paging with a maximum page size.
-        List<OrderEntity> entities = await db.Orders
-            .Include(order => order.Lines)                                                      // ②
-            .OrderBy(order => order.Id)
-            .ToListAsync();                                                                     // ③
+        int pageSize = Math.Min(query.PageSize, MaxPageSize);                                   // ②
 
-        return [.. entities.Select(ToModel)];
+        IQueryable<OrderEntity> orders = db.Orders
+            .AsNoTracking()                                                                     // ③
+            .TagWith("Orders list page");                                                       // ④
+
+        if (!string.IsNullOrWhiteSpace(query.Customer))
+        {
+            string customer = query.Customer.Trim();
+            orders = orders.Where(order => order.CustomerName.Contains(customer));              // ⑤
+        }
+
+        if (query.Status is OrderStatus status)                                                 // ⑥
+        {
+            orders = orders.WithStatus(status);
+        }
+
+        int totalCount = await orders.CountAsync(cancellationToken);                            // ⑦
+
+        IQueryable<OrderEntity> sorted = query.Sort switch                                      // ⑧
+        {
+            OrderSortBy.Oldest => orders.OrderBy(order => order.CreatedAt).ThenBy(order => order.Id),
+            OrderSortBy.Customer => orders.OrderBy(order => order.CustomerName).ThenBy(order => order.Id),
+            _ => orders.NewestFirst,
+        };
+
+        List<OrderSummaryResponse> items = await sorted
+            .Paged(query.Page, pageSize)
+            .Select(order => new OrderSummaryResponse(                                          // ⑨
+                order.Id,
+                order.CustomerName,
+                order.Status.ToString(),
+                order.CreatedAt,
+                order.Lines.Count,
+                order.Lines.Sum(line => line.Quantity * line.UnitPrice)))
+            .ToListAsync(cancellationToken);                                                    // ⑩
+
+        return new PagedResponse<OrderSummaryResponse>(items, query.Page, pageSize, totalCount);
     }
 
-    public async Task<Order?> GetByIdAsync(int id)
+    public async Task<Order?> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
         OrderEntity? entity = await db.Orders
+            .AsNoTracking()                                                                     // ⑪
             .Include(order => order.Lines)
-            .FirstOrDefaultAsync(order => order.Id == id);                                     // ④
+            .FirstOrDefaultAsync(order => order.Id == id, cancellationToken);
 
         return entity is null ? null : ToModel(entity);
     }
 
-    public async Task<CreateOrderResult> CreateAsync(CreateOrderRequest request)
+    public async Task<CreateOrderResult> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken)
     {
         if (request.Items.Count > _settings.MaxItemsPerOrder)
         {
@@ -90,18 +126,18 @@ public sealed class EfOrderService(
         {
             CustomerName = request.CustomerName.Trim(),
             Status = OrderStatus.Pending,
-            CreatedAt = timeProvider.GetUtcNow(),                                               // ⑤
+            CreatedAt = timeProvider.GetUtcNow(),
             Lines = lines,
         };
 
-        db.Orders.Add(entity);                    // state: Added, entity.Id == 0                // ⑥
-        await db.SaveChangesAsync();              // INSERTs in one transaction; state: Unchanged, Id filled  // ⑦
+        db.Orders.Add(entity);                                    // state: Added, temporary key
+        await db.SaveChangesAsync(cancellationToken);             // INSERTs in one transaction; state: Unchanged  // ⑫
 
         return CreateOrderResult.Success(ToModel(entity));
     }
 
     // Persistence shape → the API's order record. Lines sorted by Id so the response order is stable.
-    private static Order ToModel(OrderEntity entity) =>                                        // ⑧
+    private static Order ToModel(OrderEntity entity) =>
         new(
             entity.Id,
             entity.CustomerName,
