@@ -267,3 +267,96 @@ GET {{host}}/api/orders?customer=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ### ❌ injection attempt in the filter → 200, items [] — the value is a SQL PARAMETER, never part of the SQL text
 GET {{host}}/api/orders?customer=%27%3B%20DROP%20TABLE%20Orders%3B--
 Accept: application/json
+
+
+### ─────────────────────────────────────────────
+### L09 — Transactions, state machine and optimistic concurrency
+### Re-run the WHOLE file first: earlier responses must be unchanged, except GET /api/orders/{id}, which now also returns an ETag header.
+### Send these IN ORDER: each request uses the ETag returned by the one before it.
+### Watch Output: each successful transition shows ONE "UPDATE [Orders] … WHERE [Id] = @p… AND [RowVersion] = @p…".
+### ─────────────────────────────────────────────
+
+### ✅ create an order to walk through its life → 201, status Pending, ETag header
+# @name l09Create
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Hedy Lamarr", "items": [ { "productCode": "MON-27", "quantity": 1 } ] }
+
+### ✅ submit with the current ETag → 200, status Submitted, NEW ETag
+# @name l09Submit
+POST {{host}}/api/orders/{{l09Create.response.body.$.id}}/submit
+If-Match: {{l09Create.response.headers.ETag}}
+
+### ✅ pay with the ETag from submit → 200, status Paid, NEW ETag
+# @name l09Pay
+POST {{host}}/api/orders/{{l09Create.response.body.$.id}}/pay
+If-Match: {{l09Submit.response.headers.ETag}}
+
+### ✅ ship with the ETag from pay → 200, status Shipped, NEW ETag
+# @name l09Ship
+POST {{host}}/api/orders/{{l09Create.response.body.$.id}}/ship
+If-Match: {{l09Pay.response.headers.ETag}}
+
+### ❌ cancel a SHIPPED order (current ETag) → 409 ProblemDetails "The order cannot make that change." / "An order that is Shipped cannot become Cancelled."
+POST {{host}}/api/orders/{{l09Create.response.body.$.id}}/cancel
+If-Match: {{l09Ship.response.headers.ETag}}
+
+### ❌ pay a Pending order (skipping submit) → 409 ProblemDetails "An order that is Pending cannot become Paid."
+# @name l09Skip
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Lise Meitner", "items": [ { "productCode": "KB-01", "quantity": 1 } ] }
+
+###
+POST {{host}}/api/orders/{{l09Skip.response.body.$.id}}/pay
+If-Match: {{l09Skip.response.headers.ETag}}
+
+### ── Lost-update race: two updates with the SAME ETag ──
+
+### ✅ create the order both "users" will load → 201
+# @name l09Race
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Chien-Shiung Wu", "items": [ { "productCode": "MUG-01", "quantity": 2 } ] }
+
+### ✅ user A submits with the ETag from create → 200, status Submitted
+POST {{host}}/api/orders/{{l09Race.response.body.$.id}}/submit
+If-Match: {{l09Race.response.headers.ETag}}
+
+### ❌ user B cancels with the SAME (now stale) ETag → 409 "The order was changed by someone else."
+### (Cancel from Submitted is LEGAL, so this 409 is purely the version check, not the state machine.)
+POST {{host}}/api/orders/{{l09Race.response.body.$.id}}/cancel
+If-Match: {{l09Race.response.headers.ETag}}
+
+### ✅ prove nothing was overwritten → 200, status still Submitted (not Cancelled)
+GET {{host}}/api/orders/{{l09Race.response.body.$.id}}
+Accept: application/json
+
+### ── Header and lookup failures (none of these reach the database) ──
+
+### ❌ no If-Match at all → 428 ProblemDetails "If-Match header required."
+POST {{host}}/api/orders/{{l09Race.response.body.$.id}}/cancel
+
+### ❌ malformed If-Match → 400 ProblemDetails "Invalid If-Match header."
+POST {{host}}/api/orders/{{l09Race.response.body.$.id}}/cancel
+If-Match: "not-a-version"
+
+### ❌ weak ETag → 400 ProblemDetails (If-Match needs a strong ETag)
+POST {{host}}/api/orders/{{l09Race.response.body.$.id}}/cancel
+If-Match: W/"AAAAAAAAB9E="
+
+### ❌ unknown order → 404
+POST {{host}}/api/orders/999999/submit
+If-Match: "AAAAAAAAB9E="
+
+### ✅ seed order 2 is Paid, so it can be shipped: GET it first and copy its ETag, then send the ship request below
+# @name l09Seed2
+GET {{host}}/api/orders/2
+Accept: application/json
+
+###
+POST {{host}}/api/orders/2/ship
+If-Match: {{l09Seed2.response.headers.ETag}}

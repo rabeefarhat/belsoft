@@ -22,7 +22,7 @@ namespace Belsoft.Api.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Belsoft.Api.Data.Entities.OrderEntity", b =>
+            modelBuilder.Entity("Belsoft.Api.Models.Order", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -38,6 +38,12 @@ namespace Belsoft.Api.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -52,7 +58,7 @@ namespace Belsoft.Api.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_Orders_CustomerName_NotBlank", "LEN([CustomerName]) > 0");
 
-                            t.HasCheckConstraint("CK_Orders_Status", "[Status] IN (N'Pending', N'Paid', N'Shipped')");
+                            t.HasCheckConstraint("CK_Orders_Status", "[Status] IN (N'Pending', N'Submitted', N'Paid', N'Shipped', N'Cancelled')");
                         });
 
                     b.HasData(
@@ -79,7 +85,7 @@ namespace Belsoft.Api.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Belsoft.Api.Data.Entities.OrderLineEntity", b =>
+            modelBuilder.Entity("Belsoft.Api.Models.OrderLine", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -87,7 +93,7 @@ namespace Belsoft.Api.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("OrderId")
+                    b.Property<int?>("OrderId")
                         .HasColumnType("int");
 
                     b.Property<string>("ProductCode")
@@ -142,16 +148,15 @@ namespace Belsoft.Api.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Belsoft.Api.Data.Entities.OrderLineEntity", b =>
+            modelBuilder.Entity("Belsoft.Api.Models.OrderLine", b =>
                 {
-                    b.HasOne("Belsoft.Api.Data.Entities.OrderEntity", null)
+                    b.HasOne("Belsoft.Api.Models.Order", null)
                         .WithMany("Lines")
                         .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
-            modelBuilder.Entity("Belsoft.Api.Data.Entities.OrderEntity", b =>
+            modelBuilder.Entity("Belsoft.Api.Models.Order", b =>
                 {
                     b.Navigation("Lines");
                 });
