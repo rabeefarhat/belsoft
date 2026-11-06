@@ -1,6 +1,7 @@
 // Belsoft.Api entry point: register services, then build the HTTP request pipeline.
 using Belsoft.Api.Configuration;
 using Belsoft.Api.Data;
+using Belsoft.Api.ErrorHandling;
 using Belsoft.Api.Middleware;
 using Belsoft.Api.Services;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,9 @@ builder.Services.AddOpenApi();
 
 // One ProblemDetails format for every error the framework writes, including unhandled exceptions.
 builder.Services.AddProblemDetails();
+
+// Known conflicts (illegal transition, stale RowVersion) → 409 ProblemDetails. Used by UseExceptionHandler() below.
+builder.Services.AddExceptionHandler<ConflictExceptionHandler>();
 
 // Scoped by default: one DbContext per request.
 builder.Services.AddDbContext<BelsoftDbContext>(options => options.UseSqlServer(connectionString)); // ②
