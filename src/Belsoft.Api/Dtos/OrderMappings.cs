@@ -9,6 +9,9 @@ public static class OrderMappings
             order.Id,
             order.CustomerName,
             order.Status.ToString(),
+            order.Subtotal,
+            order.Discount,
+            order.PricingRule,
             order.Total,
             [.. order.Lines.Select(line =>
                 new OrderLineResponse(line.ProductCode, line.Quantity, line.UnitPrice, line.LineTotal))]);

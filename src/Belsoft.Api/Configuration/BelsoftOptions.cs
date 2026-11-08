@@ -11,4 +11,9 @@ public sealed class BelsoftOptions
     // The upper bound matches the [MaxLength(50)] ceiling on CreateOrderRequest.Items.
     [Range(1, 50)]
     public int MaxItemsPerOrder { get; init; }
+
+    // Which IPricingStrategy prices new orders: its registration key in Program.cs (case-sensitive).
+    // [Required] rejects the "" default, so a missing setting stops the app at startup.   // ①
+    [Required]
+    public string PricingRule { get; init; } = "";
 }

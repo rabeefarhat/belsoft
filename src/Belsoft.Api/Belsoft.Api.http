@@ -360,3 +360,104 @@ Accept: application/json
 ###
 POST {{host}}/api/orders/2/ship
 If-Match: {{l09Seed2.response.headers.ETag}}
+
+### ─────────────────────────────────────────────
+### L10 — Pricing rules (Strategy pattern)
+### Re-run the WHOLE file first under "PricingRule": "Standard": every earlier response must be unchanged,
+### except that order bodies now also carry subtotal, discount and pricingRule.
+### The reference basket below is 10 × MON-27 = subtotal 1200.00 for customer "Marie Curie".
+### Switch rules in appsettings.Development.json ("Belsoft:PricingRule"), then Shift+F5 and F5.
+### ─────────────────────────────────────────────
+
+### ── Setup (any rule): give Marie Curie 3 earlier orders so Loyalty applies later ──
+
+### ✅ setup order 1 → 201
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MUG-01", "quantity": 1 } ] }
+
+### ✅ setup order 2 → 201
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MUG-01", "quantity": 1 } ] }
+
+### ✅ setup order 3 → 201
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MUG-01", "quantity": 1 } ] }
+
+### ── Rule: Standard ──
+
+### ✅ reference basket under Standard → 201, subtotal 1200.00, discount 0.00, total 1200.00, pricingRule "Standard"
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MON-27", "quantity": 10 } ] }
+
+### ── Rule: Volume (set "PricingRule": "Volume", restart) ──
+
+### ✅ reference basket under Volume → 201, discount 120.00, total 1080.00, pricingRule "Volume"
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MON-27", "quantity": 10 } ] }
+
+### ❌ boundary: 9 units → 201, subtotal 1080.00, discount 0.00 (the rule needs 10)
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MON-27", "quantity": 9 } ] }
+
+### ✅ units are summed across lines: 5 + 5 → 201, subtotal 685.00, discount 68.50, total 616.50
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MON-27", "quantity": 5 }, { "productCode": "MUG-01", "quantity": 5 } ] }
+
+### ── Rule: Loyalty (set "PricingRule": "Loyalty", restart) ──
+
+### ✅ reference basket under Loyalty (Marie Curie has ≥ 3 earlier orders) → 201, discount 60.00, total 1140.00
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MON-27", "quantity": 10 } ] }
+
+### ❌ new customer, same basket → 201, discount 0.00, total 1200.00 (no history)
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Rosalind Franklin", "items": [ { "productCode": "MON-27", "quantity": 10 } ] }
+
+### ── Rule: SpendThreshold (Step 9; set "PricingRule": "SpendThreshold", restart) ──
+
+### ✅ reference basket under SpendThreshold → 201, discount 10.00, total 1190.00
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MON-27", "quantity": 10 } ] }
+
+### ❌ below threshold: 1 × MUG-01 = 15.25 → 201, discount 0.00, total 15.25
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerName": "Marie Curie", "items": [ { "productCode": "MUG-01", "quantity": 1 } ] }
+
+### ── Prices are frozen ──
+
+### ✅ under ANY rule: Marie Curie's orders keep the discount they were created with
+### (the Volume reference order still shows total 1080.00, the Loyalty one 1140.00). The list total = detail total.
+GET {{host}}/api/orders?customer=Marie%20Curie&sort=Oldest&pageSize=50
+Accept: application/json
+
+### ✅ seed order from before L10 → 200, discount 0.00, pricingRule "Standard" (set by the migration default)
+GET {{host}}/api/orders/1
+Accept: application/json
+
+### ── Configuration failures (no request to send: read the console) ──
+### ❌ "PricingRule": "volume" (lower case) → the app REFUSES TO START:
+###    "Pricing rule 'volume' is not registered. Check Belsoft:PricingRule (keys are case-sensitive)."
+### ❌ "PricingRule": "" or the key removed → the app REFUSES TO START with an OptionsValidationException naming PricingRule.
+### Restore "PricingRule": "Standard" afterwards.
