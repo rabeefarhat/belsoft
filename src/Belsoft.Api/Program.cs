@@ -3,8 +3,10 @@ using Belsoft.Api.Configuration;
 using Belsoft.Api.Data;
 using Belsoft.Api.ErrorHandling;
 using Belsoft.Api.Middleware;
+using Belsoft.Api.Pricing;
 using Belsoft.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +18,7 @@ builder.Services.AddOptions<BelsoftOptions>()
     .ValidateOnStart();
 
 // Fail at startup, not at the first request. The message names the setting, never its value.
-string connectionString = builder.Configuration.GetConnectionString("Belsoft")                       // ①
+string connectionString = builder.Configuration.GetConnectionString("Belsoft")
     ?? throw new InvalidOperationException(
         "Connection string 'Belsoft' is missing. Set it in user secrets (Development) or the environment.");
 
@@ -34,15 +36,37 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ConflictExceptionHandler>();
 
 // Scoped by default: one DbContext per request.
-builder.Services.AddDbContext<BelsoftDbContext>(options => options.UseSqlServer(connectionString)); // ②
+builder.Services.AddDbContext<BelsoftDbContext>(options => options.UseSqlServer(connectionString));
 
 // One shared clock for the app; logic asks it for the time instead of calling DateTimeOffset.UtcNow.
-builder.Services.AddSingleton(TimeProvider.System);                                                  // ③
+builder.Services.AddSingleton(TimeProvider.System);
+
+// ── Pricing (L10) ────────────────────────────────────────
+// Every rule, registered under its key. Singletons: they are stateless and pure.
+// A NEW RULE = a new class + one line here. Checkout (EfOrderService) never changes.
+builder.Services.AddKeyedSingleton<IPricingStrategy, StandardPricing>(StandardPricing.Key);              // ①
+builder.Services.AddKeyedSingleton<IPricingStrategy, VolumeDiscountPricing>(VolumeDiscountPricing.Key);
+builder.Services.AddKeyedSingleton<IPricingStrategy, LoyaltyDiscountPricing>(LoyaltyDiscountPricing.Key);
+builder.Services.AddKeyedSingleton<IPricingStrategy, SpendThresholdPricing>(SpendThresholdPricing.Key);
+
+// The ACTIVE rule, as a plain IPricingStrategy: consumers never see keys.
+builder.Services.AddSingleton<IPricingStrategy>(services =>                                              // ②
+{
+    string rule = services.GetRequiredService<IOptions<BelsoftOptions>>().Value.PricingRule;
+
+    // The rule name isn't secret, so naming it in the error is safe and saves a debugging session.
+    return services.GetKeyedService<IPricingStrategy>(rule)
+        ?? throw new InvalidOperationException(
+            $"Pricing rule '{rule}' is not registered. Check Belsoft:PricingRule (keys are case-sensitive).");
+});
 
 // Scoped, because it depends on the scoped DbContext. The L04 interface makes this the only line that changes.
-builder.Services.AddScoped<IOrderService, EfOrderService>();                                         // ④
+builder.Services.AddScoped<IOrderService, EfOrderService>();
 
 var app = builder.Build();
+
+// Resolve the active pricing rule once now, so a typo stops the app at startup, not at the first order.
+_ = app.Services.GetRequiredService<IPricingStrategy>();                                                  // ③
 
 // ── HTTP pipeline: top to bottom on the way in, bottom to top on the way out ──
 

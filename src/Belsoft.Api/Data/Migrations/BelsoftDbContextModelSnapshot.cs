@@ -38,6 +38,17 @@ namespace Belsoft.Api.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<decimal>("Discount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PricingRule")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)")
+                        .HasDefaultValue("Standard");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -58,6 +69,8 @@ namespace Belsoft.Api.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_Orders_CustomerName_NotBlank", "LEN([CustomerName]) > 0");
 
+                            t.HasCheckConstraint("CK_Orders_Discount_NonNegative", "[Discount] >= 0");
+
                             t.HasCheckConstraint("CK_Orders_Status", "[Status] IN (N'Pending', N'Submitted', N'Paid', N'Shipped', N'Cancelled')");
                         });
 
@@ -67,6 +80,8 @@ namespace Belsoft.Api.Data.Migrations
                             Id = 1,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CustomerName = "Ada Lovelace",
+                            Discount = 0m,
+                            PricingRule = "Standard",
                             Status = "Pending"
                         },
                         new
@@ -74,6 +89,8 @@ namespace Belsoft.Api.Data.Migrations
                             Id = 2,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CustomerName = "Alan Turing",
+                            Discount = 0m,
+                            PricingRule = "Standard",
                             Status = "Paid"
                         },
                         new
@@ -81,6 +98,8 @@ namespace Belsoft.Api.Data.Migrations
                             Id = 3,
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CustomerName = "Grace Hopper",
+                            Discount = 0m,
+                            PricingRule = "Standard",
                             Status = "Pending"
                         });
                 });
